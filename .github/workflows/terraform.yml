@@ -1,0 +1,45 @@
+name: Apply Terraform Configuration
+
+on:
+  workflow_dispatch: # Allows manual triggering
+  schedule:
+    - cron: '0 6 * * *' # Runs daily at 12 AM CST
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Read secrets from JSON file
+        id: read_secrets
+        run: |
+          secrets=$(cat secrets.json)
+          echo "::set-output name=github_token::$(echo $secrets | jq -r .github_token)"
+          echo "::set-output name=github_organization::$(echo $secrets | jq -r .github_organization)"
+          echo "::set-output name=repo_prefix::$(echo $secrets | jq -r .repo_prefix)"
+
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Validate Terraform
+        run: terraform validate
+
+      - name: Plan Terraform
+        run: terraform plan
+        env:
+          TF_VAR_github_token: ${{ steps.read_secrets.outputs.github_token }}
+          TF_VAR_github_organization: ${{ steps.read_secrets.outputs.github_organization }}
+          TF_VAR_repo_prefix: ${{ steps.read_secrets.outputs.repo_prefix }}
+
+      - name: Apply Terraform
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_github_token: ${{ steps.read_secrets.outputs.github_token }}
+          TF_VAR_github_organization: ${{ steps.read_secrets.outputs.github_organization }}
+          TF_VAR_repo_prefix: ${{ steps.read_secrets.outputs.repo_prefix }}
